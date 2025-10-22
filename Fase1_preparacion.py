@@ -9,6 +9,7 @@ def ejecutar_fase1():
     import seaborn as sns
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import LabelEncoder, StandardScaler
+    import joblib
 
     # CONFIGURACIÓN INICIAL
     output_dir = "Resultados"
@@ -188,17 +189,23 @@ def ejecutar_fase1():
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    # 1️⃣ Primero: 80% para entrenamiento+validación, 20% para prueba
-    X_temp, X_test, y_temp, y_test = train_test_split(
-        X_scaled, y, test_size=0.2, random_state=42, stratify=y
+    # Guardar el escalador por si se requiere luego
+    joblib.dump(scaler, "processed_data/scaler.pkl")
+
+    # Divisiones
+    X_temp, X_test, y_temp, y_test, idx_temp, idx_test = train_test_split(
+        X_scaled, y, df.index, test_size=0.2, random_state=42, stratify=y
+    )
+    X_train, X_val, y_train, y_val, idx_train, idx_val = train_test_split(
+        X_temp, y_temp, idx_temp, test_size=0.125, random_state=42, stratify=y_temp
     )
 
-    # 2️⃣ Luego: del 80%, separar 10% validación → (10% de total ≈ 12.5% de 80%)
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_temp, y_temp, test_size=0.125, random_state=42, stratify=y_temp
-    )
+    # Guardar índices originales para trazabilidad
+    np.save("processed_data/indices_train.npy", idx_train)
+    np.save("processed_data/indices_val.npy", idx_val)
+    np.save("processed_data/indices_test.npy", idx_test)
 
-    # GUARDADO DE ARCHIVOS
+    # Guardar arrays para el modelo
     os.makedirs("processed_data", exist_ok=True)
     np.save("processed_data/X_train.npy", X_train)
     np.save("processed_data/X_val.npy", X_val)
@@ -207,10 +214,25 @@ def ejecutar_fase1():
     np.save("processed_data/y_val.npy", y_val)
     np.save("processed_data/y_test.npy", y_test)
 
-    print("\nFase 1 completada correctamente")
-    print("\nResumen de conjuntos de datos:")
+    # Guardar subconjuntos originales con equipos y resultados
+    df.loc[idx_train].to_csv("processed_data/df_train.csv", index=False)
+    df.loc[idx_val].to_csv("processed_data/df_val.csv", index=False)
+    df.loc[idx_test].to_csv("processed_data/df_test.csv", index=False)
+
+    # Guardar codificadores
+    joblib.dump(le_home, "processed_data/le_home.pkl")
+    joblib.dump(le_away, "processed_data/le_away.pkl")
+    joblib.dump(le_league, "processed_data/le_league.pkl")
+
+    print("\nArchivos guardados correctamente:")
+    print(" - Arrays .npy de entrenamiento, validación y prueba")
+    print(" - Índices originales (para sincronización con df)")
+    print(" - CSVs con nombres de equipos por conjunto")
+    print(" - Codificadores y escalador\n")
+
+    print("Fase 1 completada correctamente.\n")
+    print("Resumen de conjuntos de datos:")
     print(f"Total de registros originales: {len(X)}")
     print(f"Datos de entrenamiento: {len(X_train)} ({len(X_train) / len(X) * 100:.2f}%)")
     print(f"Datos de validación: {len(X_val)} ({len(X_val) / len(X) * 100:.2f}%)")
     print(f"Datos de prueba: {len(X_test)} ({len(X_test) / len(X) * 100:.2f}%)")
-
