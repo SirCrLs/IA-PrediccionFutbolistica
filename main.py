@@ -9,4 +9,4 @@ if __name__ == "__main__":
         ejecutar_fase1()
         ejecutar_fase2()
     except Exception as e:
-        print("Error {e}")
+        print("Error" + str(e))
