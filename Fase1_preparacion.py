@@ -1,5 +1,4 @@
 def ejecutar_fase1():
-
     # FASE 1 - CARGA, LIMPIEZA, ANÁLISIS Y DIVISIÓN DE DATOS
 
     import os
@@ -18,11 +17,10 @@ def ejecutar_fase1():
     os.makedirs(output_dir, exist_ok=True)
     leagues = ["E0", "E1", "E2", "E3", "D1", "F1", "I1", "SP1"]
     base_path = "footballdata/Big 5 Leagues (05-06 to 18-19)"
-
     dataframes = []
 
 
-    # CARGA DE TODOS LOS CSV
+    #  CARGA DE TODOS LOS CSV
     for league in leagues:
         league_folder = os.path.join(base_path, league)
         csv_files = glob.glob(os.path.join(league_folder, "*.csv"))
@@ -39,7 +37,7 @@ def ejecutar_fase1():
     print(f"\nDatos combinados: {df_raw.shape[0]} registros totales, {df_raw.shape[1]} columnas")
 
 
-    # SELECCIÓN Y LIMPIEZA DE VARIABLES
+    # SELECCIÓN Y LIMPIEZA
     cols = [
         "League", "HomeTeam", "AwayTeam", "FTHG", "FTAG", "FTR",
         "HS", "AS", "HST", "AST", "HF", "AF", "HC", "AC",
@@ -50,7 +48,7 @@ def ejecutar_fase1():
     print(f"Datos limpios: {df.shape[0]} registros válidos")
 
 
-    # TRANSFORMACIÓN DE VARIABLES
+    #TRANSFORMACIÓN DE VARIABLES
     label_map = {"H": 0, "D": 1, "A": 2}
     df["FTR"] = df["FTR"].map(label_map)
 
@@ -59,29 +57,136 @@ def ejecutar_fase1():
     df["AwayTeam"] = le_away.fit_transform(df["AwayTeam"])
     df["League"] = le_league.fit_transform(df["League"])
 
-
-    # VARIABLES ADICIONALES DE DISCIPLINA
+    # Variables adicionales
     df["Total_Yellow"] = df["HY"] + df["AY"]
     df["Total_Red"] = df["HR"] + df["AR"]
 
+    # ANÁLISIS EXPLORATORIO Y GRÁFICAS
+    print("\nGenerando gráficas de análisis...")
 
-    # NORMALIZACIÓN Y DIVISIÓN DE CONJUNTOS (70 / 20 / 10)
-    # La red neuronal predecirá:
-    #  - Resultado (FTR)
-    #  - Goles locales y visitantes (FTHG, FTAG)
-    #  - Tarjetas amarillas locales y visitantes (HY, AY)
+    # --- 1. Distribución de resultados ---
+    plt.figure(figsize=(6, 4))
+    ax = sns.countplot(x=df["FTR"])
+    plt.title("Distribución de Resultados (0=Local,1=Empate,2=Visitante)")
+    for p in ax.patches:
+        ax.text(p.get_x() + p.get_width() / 2, p.get_height() + 200,
+                f"{int(p.get_height())}", ha='center', va='bottom', fontsize=9)
+    plt.savefig(os.path.join(output_dir, "distribucion_resultados.png"))
+    plt.close()
 
+    # --- 2. Promedio de goles ---
+    plt.figure(figsize=(8, 5))
+    ax = sns.barplot(x=["Local", "Visitante"], y=[df["FTHG"].mean(), df["FTAG"].mean()], palette="Blues")
+    plt.title("Promedio de Goles por Condición")
+    plt.ylabel("Goles promedio")
+    for p in ax.patches:
+        ax.text(p.get_x() + p.get_width() / 2, p.get_height() + 0.02,
+                f"{p.get_height():.2f}", ha='center', va='bottom', fontsize=10)
+    plt.savefig(os.path.join(output_dir, "promedio_goles.png"))
+    plt.close()
+
+    # --- 3. Mapa de correlaciones ---
+    plt.figure(figsize=(10, 8))
+    corr_matrix = df.select_dtypes(include=[np.number]).corr()
+    sns.heatmap(corr_matrix, cmap="coolwarm", annot=False)
+    plt.title("Mapa de Correlaciones (Variables Numéricas)")
+    plt.savefig(os.path.join(output_dir, "mapa_correlaciones.png"))
+    plt.close()
+
+    # --- 4. Promedio global de tarjetas ---
+    avg_yellow = df["Total_Yellow"].mean()
+    avg_red = df["Total_Red"].mean()
+
+    df_tarjetas = pd.DataFrame({
+        "Tipo": ["Amarillas", "Rojas"],
+        "Promedio": [avg_yellow, avg_red]
+    })
+
+    plt.figure(figsize=(7, 5))
+    ax = sns.barplot(data=df_tarjetas, x="Tipo", y="Promedio",
+                     palette={"Amarillas": "gold", "Rojas": "red"})
+    plt.title("Promedio de Tarjetas por Partido (Todas las Ligas)")
+    plt.ylabel("Promedio de tarjetas")
+    for p in ax.patches:
+        ax.text(p.get_x() + p.get_width() / 2, p.get_height() + 0.02,
+                f"{p.get_height():.2f}", ha='center', va='bottom', fontsize=10)
+    plt.savefig(os.path.join(output_dir, "promedio_tarjetas.png"))
+    plt.close()
+
+    # --- 5. Promedio de tarjetas por condición ---
+    tarjetas_condicion = pd.DataFrame({
+        "Condición": ["Local", "Visitante"],
+        "Amarillas": [df["HY"].mean(), df["AY"].mean()],
+        "Rojas": [df["HR"].mean(), df["AR"].mean()]
+    })
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    tarjetas_condicion.set_index("Condición")[["Amarillas", "Rojas"]].plot(kind="bar", color=["gold", "red"], ax=ax)
+    plt.title("Promedio de Tarjetas por Condición")
+    plt.ylabel("Promedio de tarjetas")
+    plt.xticks(rotation=0)
+    for container in ax.containers:
+        ax.bar_label(container, fmt="%.2f", label_type="edge", fontsize=9)
+    plt.savefig(os.path.join(output_dir, "tarjetas_por_condicion.png"))
+    plt.close()
+
+    # --- 6. Top 10 equipos más indisciplinados ---
+    df_equipo_disciplina = df_raw.groupby("HomeTeam")[["HY", "HR"]].mean().reset_index()
+    df_equipo_disciplina.columns = ["Equipo", "Promedio_HY", "Promedio_HR"]
+
+    df_away = df_raw.groupby("AwayTeam")[["AY", "AR"]].mean().reset_index()
+    df_away.columns = ["Equipo", "Promedio_AY", "Promedio_AR"]
+
+    df_equipo = pd.merge(df_equipo_disciplina, df_away, on="Equipo", how="outer").fillna(0)
+    df_equipo["Promedio_Total_Amarillas"] = (df_equipo["Promedio_HY"] + df_equipo["Promedio_AY"]) / 2
+    df_equipo["Promedio_Total_Rojas"] = (df_equipo["Promedio_HR"] + df_equipo["Promedio_AR"]) / 2
+    df_equipo["Total_Promedio_Tarjetas"] = df_equipo["Promedio_Total_Amarillas"] + df_equipo["Promedio_Total_Rojas"]
+
+    top10_indisciplinados = df_equipo.sort_values("Total_Promedio_Tarjetas", ascending=False).head(10)
+    top10_disciplinados = df_equipo.sort_values("Total_Promedio_Tarjetas", ascending=True).head(10)
+
+    plt.figure(figsize=(10, 6))
+    ax = sns.barplot(
+        data=top10_indisciplinados,
+        x="Total_Promedio_Tarjetas",
+        y="Equipo",
+        color="red"
+    )
+    plt.title("Top 10 Equipos Más Indisciplinados (Promedio de Tarjetas por Partido)")
+    plt.xlabel("Promedio de Tarjetas Totales")
+    plt.ylabel("Equipo")
+    for container in ax.containers:
+        ax.bar_label(container, fmt="%.2f", label_type="edge", fontsize=9)
+    plt.savefig(os.path.join(output_dir, "top10_indisciplinados.png"))
+    plt.close()
+
+    plt.figure(figsize=(10, 6))
+    ax = sns.barplot(
+        data=top10_disciplinados,
+        x="Total_Promedio_Tarjetas",
+        y="Equipo",
+        color="green"
+    )
+    plt.title("Top 10 Equipos Más Disciplinados (Promedio de Tarjetas por Partido)")
+    plt.xlabel("Promedio de Tarjetas Totales")
+    plt.ylabel("Equipo")
+    for container in ax.containers:
+        ax.bar_label(container, fmt="%.2f", label_type="edge", fontsize=9)
+    plt.savefig(os.path.join(output_dir, "top10_disciplinados.png"))
+    plt.close()
+
+    print("Gráficas guardadas en la carpeta 'Resultados/'")
+
+   # NORMALIZACIÓN Y DIVISIÓN DE CONJUNTOS (70/20/10)
     X = df.drop(["FTR", "FTHG", "FTAG", "HY", "AY"], axis=1)
-    y = df[["FTR", "FTHG", "FTAG", "HY", "AY"]].values  # <-- y con 5 columnas
+    y = df[["FTR", "FTHG", "FTAG", "HY", "AY"]].values
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
-    # Guardar el escalador
     os.makedirs("processed_data", exist_ok=True)
     joblib.dump(scaler, "processed_data/scaler.pkl")
 
-    # Dividir conjuntos
     X_temp, X_test, y_temp, y_test = train_test_split(
         X_scaled, y, test_size=0.2, random_state=42, stratify=df["FTR"]
     )
@@ -89,7 +194,6 @@ def ejecutar_fase1():
         X_temp, y_temp, test_size=0.125, random_state=42, stratify=y_temp[:, 0]
     )
 
-    # Guardar datos
     np.save("processed_data/X_train.npy", X_train)
     np.save("processed_data/X_val.npy", X_val)
     np.save("processed_data/X_test.npy", X_test)
@@ -98,8 +202,7 @@ def ejecutar_fase1():
     np.save("processed_data/y_test.npy", y_test)
 
     print("\nArchivos guardados correctamente con las nuevas salidas:")
-    print("\nFase 1 completada correctamente.")
+    print("Fase 1 completada correctamente.")
     print(f" - Datos de entrenamiento: {len(X_train)}")
     print(f" - Datos de validación: {len(X_val)}")
     print(f" - Datos de prueba: {len(X_test)}")
-
