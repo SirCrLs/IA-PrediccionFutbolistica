@@ -15,7 +15,6 @@ def ejecutar_fase2():
     from tensorflow.keras.optimizers import Adam
     from sklearn.metrics import classification_report, confusion_matrix
 
-
     # 1. CARGA DE DATOS
     print("Cargando los conjuntos de datos preprocesados...\n")
     X_train = np.load("processed_data/X_train.npy")
@@ -32,17 +31,20 @@ def ejecutar_fase2():
 
     # Separar las tres salidas desde el arreglo y_train, y_val, y_test
 
-    yres_train, yg_train, yt_train = y_train[:, 0], y_train[:, 1:3], y_train[:, 3:5]
+    yres_train, yg_train, yt_train = y_train[:,
+                                             0], y_train[:, 1:3], y_train[:, 3:5]
     yres_val, yg_val, yt_val = y_val[:, 0], y_val[:, 1:3], y_val[:, 3:5]
     yres_test, yg_test, yt_test = y_test[:, 0], y_test[:, 1:3], y_test[:, 3:5]
 
-
     # 2. DEFINICIÓN DEL MODELO MULTISALIDA
+
     print(" Construyendo el modelo neuronal multisalida...\n")
 
     entrada = Input(shape=(X_train.shape[1],), name="entrada_principal")
 
+    # ==== PRIMER MODELO DE 256 ====
     # Capa base compartida
+
     x = Dense(256, activation="relu")(entrada)
     x = Dropout(0.3)(x)
     x = Dense(128, activation="relu")(x)
@@ -57,8 +59,29 @@ def ejecutar_fase2():
     # Salida 3: predicción de tarjetas amarillas/rojas
     out_tarjetas = Dense(2, activation="relu", name="tarjetas")(x)
 
+    # ==== SEGUNDO MODELO DE RAMAS ====
+    """
+    # Base compartida
+    x = Dense(512, activation="relu")(entrada)
+    x = Dropout(0.3)(x)
+    x = Dense(256, activation="relu")(x)
+
+    # resultado
+    r1 = Dense(128, activation="relu")(x)
+    out_resultado = Dense(3, activation="softmax", name="resultado")(r1)
+
+    # goles
+    r2 = Dense(128, activation="relu")(x)
+    out_goles = Dense(2, activation="relu", name="goles")(r2)
+
+    # tarjetas
+    r3 = Dense(128, activation="relu")(x)
+    out_tarjetas = Dense(2, activation="relu", name="tarjetas")(r3)
+    """
+
     # Crear modelo multisalida
-    model = Model(inputs=entrada, outputs=[out_resultado, out_goles, out_tarjetas])
+    model = Model(inputs=entrada, outputs=[
+                  out_resultado, out_goles, out_tarjetas])
     model.compile(
         optimizer=Adam(learning_rate=0.001),
         loss={
@@ -76,18 +99,17 @@ def ejecutar_fase2():
     print("Resumen del modelo:")
     model.summary()
 
-
     # 3. ENTRENAMIENTO DEL MODELO
     print("\n Iniciando entrenamiento del modelo ")
     history = model.fit(
         X_train,
         {"resultado": yres_train, "goles": yg_train, "tarjetas": yt_train},
-        validation_data=(X_val, {"resultado": yres_val, "goles": yg_val, "tarjetas": yt_val}),
+        validation_data=(X_val, {"resultado": yres_val,
+                         "goles": yg_val, "tarjetas": yt_val}),
         epochs=100,
         batch_size=128,
         verbose=1
     )
-
 
     # 4. EVALUACIÓN FINAL
     print("\n Evaluando el modelo en el conjunto de prueba...")
@@ -138,7 +160,7 @@ def ejecutar_fase2():
     plt.savefig("Resultados/perdida_total.png")
     plt.close()
 
-    #Gráfica MAE goles
+    # Gráfica MAE goles
     plt.figure(figsize=(8, 5))
     plt.plot(history.history['goles_mae'], label='Entrenamiento')
     plt.plot(history.history['val_goles_mae'], label='Validación')
@@ -151,7 +173,7 @@ def ejecutar_fase2():
     plt.savefig("Resultados/mae_goles.png")
     plt.close()
 
-    #Gráfica MAE tarjetas
+    # Gráfica MAE tarjetas
     plt.figure(figsize=(8, 5))
     plt.plot(history.history['tarjetas_mae'], label='Entrenamiento')
     plt.plot(history.history['val_tarjetas_mae'], label='Validación')
@@ -194,17 +216,21 @@ def ejecutar_fase2():
     pred_resultado, pred_goles, pred_tarjetas = model.predict(X_test[:10])
 
     for i in range(10):
-        equipo_local = le_home.inverse_transform([int(df_test_ref.iloc[i]["HomeTeam"])])[0]
-        equipo_visitante = le_away.inverse_transform([int(df_test_ref.iloc[i]["AwayTeam"])])[0]
+        equipo_local = le_home.inverse_transform(
+            [int(df_test_ref.iloc[i]["HomeTeam"])])[0]
+        equipo_visitante = le_away.inverse_transform(
+            [int(df_test_ref.iloc[i]["AwayTeam"])])[0]
 
         real_res = ["Local", "Empate", "Visitante"][int(yres_test[i])]
-        pred_res = ["Local", "Empate", "Visitante"][int(np.argmax(pred_resultado[i]))]
+        pred_res = ["Local", "Empate", "Visitante"][int(
+            np.argmax(pred_resultado[i]))]
 
         print(f"Partido {i + 1}: {equipo_local} vs {equipo_visitante}")
         print(f"  Resultado real: {real_res} | Predicho: {pred_res}")
-        print(f"  Goles reales: {yg_test[i]} | Predichos: {pred_goles[i].round(1)}")
-        print(f"  Tarjetas reales: {yt_test[i]} | Predichas: {pred_tarjetas[i].round(1)}\n")
-
+        print(
+            f"  Goles reales: {yg_test[i]} | Predichos: {pred_goles[i].round(1)}")
+        print(
+            f"  Tarjetas reales: {yt_test[i]} | Predichas: {pred_tarjetas[i].round(1)}\n")
 
     # 7. PRUEBA DE GENERALIZACIÓN / ROBUSTEZ
     print("Evaluando robustez con datos perturbados\n")
@@ -224,13 +250,9 @@ def ejecutar_fase2():
     print(f"- MAE Goles con ruido: {mae_g:.3f}")
     print(f"- MAE Tarjetas con ruido: {mae_t:.3f}\n")
 
-
     # 8. GUARDADO DEL MODELO
     os.makedirs("Resultados", exist_ok=True)
     model.save("Resultados/modelo_multisalida.keras")
     print("Modelo multisalida guardado correctamente en 'Resultados/'\n")
 
     print("Fase 2 completada con éxito.")
-
-
-
