@@ -80,6 +80,25 @@ def ejecutar_fase2():
     r3 = Dense(128, activation="relu")(x)
     out_tarjetas = Dense(2, activation="relu", name="tarjetas")(r3)
     
+
+    # ==== TERCER MODELO: Embudo Decreciente ====
+    
+    # Base compartida de 3 capas
+    x = Dense(512, activation="relu")(entrada) # Capa más grande
+    x = Dropout(0.4)(x) # Aumentamos el Dropout
+    x = Dense(256, activation="relu")(x)
+    x = Dropout(0.3)(x)
+    x = Dense(128, activation="relu")(x) # La base termina en 128
+    
+    # Salida 1: resultado del partido (Clasificación)
+    out_resultado = Dense(3, activation="softmax", name="resultado")(x)
+
+    # Salida 2: predicción de goles (Regresión)
+    out_goles = Dense(2, activation="relu", name="goles")(x)
+
+    # Salida 3: predicción de tarjetas (Regresión)
+    out_tarjetas = Dense(2, activation="relu", name="tarjetas")(x)
+
     """
     
     # ==== NUEVA COMBINACIÓN: Capa Única (Simplificación) ====
