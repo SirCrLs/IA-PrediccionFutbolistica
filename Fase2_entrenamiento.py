@@ -41,7 +41,8 @@ def ejecutar_fase2():
     print(" Construyendo el modelo neuronal multisalida...\n")
 
     entrada = Input(shape=(X_train.shape[1],), name="entrada_principal")
-
+    
+    """
     # ==== PRIMER MODELO DE 256 ====
     # Capa base compartida
 
@@ -58,9 +59,10 @@ def ejecutar_fase2():
 
     # Salida 3: predicción de tarjetas amarillas/rojas
     out_tarjetas = Dense(2, activation="relu", name="tarjetas")(x)
+    
 
     # ==== SEGUNDO MODELO DE RAMAS ====
-    """
+    
     # Base compartida
     x = Dense(512, activation="relu")(entrada)
     x = Dropout(0.3)(x)
@@ -77,8 +79,22 @@ def ejecutar_fase2():
     # tarjetas
     r3 = Dense(128, activation="relu")(x)
     out_tarjetas = Dense(2, activation="relu", name="tarjetas")(r3)
+    
     """
+    
+    # ==== NUEVA COMBINACIÓN: Capa Única (Simplificación) ====
+    x = Dense(128, activation="relu")(entrada) # Una sola capa oculta
+    x = Dropout(0.2)(x) # Reducimos el Dropout por si la red es muy pequeña
+    
+    # Salida 1: resultado del partido (clasificación)
+    out_resultado = Dense(3, activation="softmax", name="resultado")(x)
 
+    # Salida 2: predicción de goles
+    out_goles = Dense(2, activation="relu", name="goles")(x)
+
+    # Salida 3: predicción de tarjetas
+    out_tarjetas = Dense(2, activation="relu", name="tarjetas")(x)
+    
     # Crear modelo multisalida
     model = Model(inputs=entrada, outputs=[
                   out_resultado, out_goles, out_tarjetas])
