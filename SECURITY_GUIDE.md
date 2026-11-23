@@ -46,6 +46,8 @@ Las acciones `phase1` y `phase2` requieren el rol correspondiente. La acción `p
 
 Los informes se guardan en `reports/` y el workflow de CI los publica como artefactos.
 
+La revisión técnica de criptografía, formato seguro de artefactos y dependencias fijadas está en `reports/crypto_dependencies.md`.
+
 ## Configuración manual requerida en GitHub
 
 - Habilita la protección de la rama principal y exige la comprobación de estado del workflow `security`.

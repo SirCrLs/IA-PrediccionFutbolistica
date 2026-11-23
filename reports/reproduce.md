@@ -1,10 +1,10 @@
-# Security Test Reproduce Commands
+# Comandos reproducibles de pruebas de seguridad
 
-Windows PowerShell, from the repository root:
+Desde PowerShell en la raíz del repositorio:
 
 ```powershell
 .venv\Scripts\pytest.exe -q tests/test_security.py
 .venv\Scripts\pytest.exe -q --junitxml=reports\pytest.xml tests\test_security.py
 ```
 
-The JUnit report is written to `reports/pytest.xml`.
+El informe JUnit se escribe en `reports/pytest.xml`.
