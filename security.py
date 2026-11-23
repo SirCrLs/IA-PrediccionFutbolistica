@@ -191,7 +191,11 @@ def sha256(path):
 
 
 def _canonical(path):
-    return Path(path).resolve().as_posix()
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return resolved.as_posix()
 
 
 def _signature(hashes):

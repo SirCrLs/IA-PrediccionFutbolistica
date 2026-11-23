@@ -2,7 +2,7 @@ def ejecutar_fase1():
     # FASE 1 - CARGA, LIMPIEZA, ANÁLISIS Y DIVISIÓN DE DATOS
 
     import os
-    import glob
+    import random
     import pandas as pd
     import numpy as np
     import matplotlib.pyplot as plt
@@ -10,6 +10,10 @@ def ejecutar_fase1():
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import LabelEncoder, StandardScaler
     import joblib
+    from security import build_manifest, sha256, verify, validate_csv, log
+
+    random.seed(42)
+    np.random.seed(42)
 
 
     # CONFIGURACIÓN INICIAL
@@ -18,20 +22,31 @@ def ejecutar_fase1():
     leagues = ["E0", "E1", "E2", "E3", "D1", "F1", "I1", "SP1"]
     base_path = "footballdata/Big 5 Leagues (05-06 to 18-19)"
     dataframes = []
+    csv_files = sorted([
+        os.path.join(base_path, league, csv_name)
+        for league in leagues
+        for csv_name in os.listdir(os.path.join(base_path, league))
+        if csv_name.lower().endswith(".csv")
+    ])
 
+    if not csv_files:
+        raise ValueError("No CSV datasets found")
+    if not os.path.exists("manifest.json"):
+        build_manifest(csv_files)
 
     #  CARGA DE TODOS LOS CSV
-    for league in leagues:
-        league_folder = os.path.join(base_path, league)
-        csv_files = glob.glob(os.path.join(league_folder, "*.csv"))
-        for file in csv_files:
-            try:
-                df_temp = pd.read_csv(file)
-                df_temp["League"] = league
-                df_temp["Season"] = os.path.basename(file).split(".")[0]
-                dataframes.append(df_temp)
-            except Exception as e:
-                print(f"Error al leer {file}: {e}")
+    for file in csv_files:
+        try:
+            verify(file)
+            df_temp = pd.read_csv(file)
+            league = os.path.basename(os.path.dirname(file))
+            df_temp["League"] = league
+            df_temp["Season"] = os.path.basename(file).split(".")[0]
+            validate_csv(df_temp)
+            dataframes.append(df_temp)
+        except Exception as exc:
+            log.error("CSV rejected: %s", os.path.basename(file))
+            raise ValueError("Dataset validation failed") from exc
 
     df_raw = pd.concat(dataframes, ignore_index=True)
     print(f"\nDatos combinados: {df_raw.shape[0]} registros totales, {df_raw.shape[1]} columnas")
@@ -200,6 +215,20 @@ def ejecutar_fase1():
     np.save("processed_data/y_train.npy", y_train)
     np.save("processed_data/y_val.npy", y_val)
     np.save("processed_data/y_test.npy", y_test)
+
+    protected_outputs = [
+        "processed_data/scaler.pkl",
+        "processed_data/X_train.npy",
+        "processed_data/X_val.npy",
+        "processed_data/X_test.npy",
+        "processed_data/y_train.npy",
+        "processed_data/y_val.npy",
+        "processed_data/y_test.npy",
+    ]
+    build_manifest(csv_files + protected_outputs)
+    log.info("PHASE1 dataset_hashes=%s output_hashes=%s",
+             ",".join(sha256(path) for path in csv_files),
+             ",".join(sha256(path) for path in protected_outputs))
 
     print("\nArchivos guardados correctamente con las nuevas salidas:")
     print("Fase 1 completada correctamente.")
