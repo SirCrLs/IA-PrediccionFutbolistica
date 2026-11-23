@@ -4,6 +4,9 @@ def ejecutar_fase2():
     # Predicción de resultados, goles y tarjetas
     # ============================================
 
+    import datetime
+    import random
+    import subprocess
     import numpy as np
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -14,9 +17,29 @@ def ejecutar_fase2():
     from tensorflow.keras.layers import Input, Dense, Dropout
     from tensorflow.keras.optimizers import Adam
     from sklearn.metrics import classification_report, confusion_matrix
+    from security import build_manifest, load_pkl, log, require, sha256, verify
+
+    require("train")
+    require("read_data")
+    random.seed(42)
+    np.random.seed(42)
+
+    registered_inputs = [
+        "processed_data/X_train.npy", "processed_data/X_val.npy",
+        "processed_data/X_test.npy", "processed_data/y_train.npy",
+        "processed_data/y_val.npy", "processed_data/y_test.npy",
+        "processed_data/le_home.pkl", "processed_data/le_away.pkl",
+    ]
+    build_manifest(registered_inputs)
 
     # 1. CARGA DE DATOS
     print("Cargando los conjuntos de datos preprocesados...\n")
+    for data_path in (
+        "processed_data/X_train.npy", "processed_data/X_val.npy",
+        "processed_data/X_test.npy", "processed_data/y_train.npy",
+        "processed_data/y_val.npy", "processed_data/y_test.npy",
+    ):
+        verify(data_path)
     X_train = np.load("processed_data/X_train.npy")
     X_val = np.load("processed_data/X_val.npy")
     X_test = np.load("processed_data/X_test.npy")
@@ -244,8 +267,8 @@ def ejecutar_fase2():
     # 6. PREDICCIONES DE EJEMPLO (10 PARTIDOS)
     print("\nPredicciones de ejemplo (primeros 10 partidos del conjunto de prueba):\n")
 
-    le_home = joblib.load("processed_data/le_home.pkl")
-    le_away = joblib.load("processed_data/le_away.pkl")
+    le_home = load_pkl("processed_data/le_home.pkl")
+    le_away = load_pkl("processed_data/le_away.pkl")
     df_test_ref = pd.read_csv("processed_data/df_test.csv")
 
     pred_resultado, pred_goles, pred_tarjetas = model.predict(X_test[:10])
@@ -287,7 +310,36 @@ def ejecutar_fase2():
 
     # 8. GUARDADO DEL MODELO
     os.makedirs("Resultados", exist_ok=True)
-    model.save("Resultados/modelo_multisalida.keras")
+    require("write_models")
+    model_path = "Resultados/modelo_multisalida.keras"
+    model.save(model_path)
+    build_manifest([
+        "processed_data/X_train.npy", "processed_data/X_val.npy",
+        "processed_data/X_test.npy", "processed_data/y_train.npy",
+        "processed_data/y_val.npy", "processed_data/y_test.npy",
+        "processed_data/le_home.pkl", "processed_data/le_away.pkl",
+        model_path,
+    ])
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip() or "unknown"
+    except OSError:
+        commit = "unknown"
+    input_hashes = ",".join(
+        sha256(path) for path in (
+            "processed_data/X_train.npy", "processed_data/X_val.npy",
+            "processed_data/X_test.npy", "processed_data/y_train.npy",
+            "processed_data/y_val.npy", "processed_data/y_test.npy",
+            "processed_data/le_home.pkl", "processed_data/le_away.pkl",
+        )
+    )
+    log.info("TRAIN date=%s git_commit=%s input_hashes=%s model_hash=%s",
+             datetime.datetime.now(datetime.timezone.utc).isoformat(),
+             commit, input_hashes, sha256(model_path))
     print("Modelo multisalida guardado correctamente en 'Resultados/'\n")
 
     print("Fase 2 completada con éxito.")
