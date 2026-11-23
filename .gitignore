@@ -2,3 +2,11 @@ kaggle.json
 COPILOT.md
 .venv
 .venv/
+.env
+.env.*
+!.env.example
+users.json
+audit.log
+__pycache__/
+*.pyc
+reports/*.tmp
