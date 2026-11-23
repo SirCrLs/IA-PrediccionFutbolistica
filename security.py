@@ -3,6 +3,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 
@@ -14,6 +15,18 @@ SCRYPT_N = 2**15
 SCRYPT_R = 8
 SCRYPT_P = 1
 SCRYPT_MAXMEM = 64 * 1024 * 1024
+
+NAME = re.compile(r"[A-Za-z0-9 .'&-]{2,40}")
+PROJECT_ROOT = Path(__file__).resolve().parent
+ALLOWED_DATA_DIRS = (
+    PROJECT_ROOT / "footballdata",
+    PROJECT_ROOT / "processed_data",
+    PROJECT_ROOT / "Resultados",
+)
+ALLOWED_EXTENSIONS = {".csv", ".npy", ".pkl", ".keras"}
+MAX_CSV_ROWS = 100_000
+MAX_FILE_SIZE = 100 * 1024 * 1024
+CSV_COLS = {"HomeTeam", "AwayTeam", "FTHG", "FTAG"}
 
 ROLES = {
     "viewer": {"predict", "read_data"},
@@ -106,6 +119,57 @@ def require(action):
         raise PermissionError("Access denied")
     log.info("GRANTED action=%s role=%s", action, role)
     return role
+
+
+def validate_match(home, away, league, teams, leagues):
+    for team in (home, away):
+        if not isinstance(team, str) or "\x00" in team or not NAME.fullmatch(team):
+            raise ValueError("Invalid team")
+        if team not in teams:
+            raise ValueError("Unknown team")
+    if home == away:
+        raise ValueError("Invalid match")
+    if not isinstance(league, str) or league not in leagues:
+        raise ValueError("Invalid league")
+    return True
+
+
+def validate_csv(df, max_rows=MAX_CSV_ROWS):
+    if df is None or len(df) > max_rows:
+        raise ValueError("Invalid CSV size")
+    if not CSV_COLS <= set(df.columns):
+        raise ValueError("Invalid CSV schema")
+    for column in ("FTHG", "FTAG"):
+        values = df[column]
+        if values.isna().any():
+            raise ValueError("CSV contains missing values")
+        try:
+            numeric = values.astype("float64")
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("CSV contains invalid data") from exc
+        if not ((numeric >= 0) & (numeric <= 20)).all():
+            raise ValueError("CSV values out of range")
+    return True
+
+
+def validate_path(path, allowed_dirs=ALLOWED_DATA_DIRS, allowed_extensions=None):
+    if not isinstance(path, (str, os.PathLike)):
+        raise ValueError("Invalid path")
+    raw = os.fspath(path)
+    if "\x00" in raw or ".." in Path(raw).parts:
+        raise ValueError("Invalid path")
+
+    extensions = set(ALLOWED_EXTENSIONS if allowed_extensions is None else allowed_extensions)
+    candidate = Path(raw).expanduser().resolve()
+    if candidate.suffix.lower() not in extensions:
+        raise ValueError("Invalid file extension")
+    if not any(candidate.is_relative_to(Path(directory).resolve()) for directory in allowed_dirs):
+        raise ValueError("Path outside allowed directories")
+    if not candidate.is_file():
+        raise ValueError("File not found")
+    if candidate.stat().st_size > MAX_FILE_SIZE:
+        raise ValueError("File too large")
+    return candidate
 
 
 def secret(name):
