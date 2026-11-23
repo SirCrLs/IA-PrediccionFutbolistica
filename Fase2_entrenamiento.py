@@ -6,7 +6,6 @@ def ejecutar_fase2():
 
     import datetime
     import random
-    import subprocess
     import numpy as np
     import matplotlib.pyplot as plt
     import seaborn as sns
@@ -320,14 +319,16 @@ def ejecutar_fase2():
         "processed_data/le_home.pkl", "processed_data/le_away.pkl",
         model_path,
     ])
+    commit = "unknown"
     try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip() or "unknown"
-    except OSError:
+        head = os.path.join(".git", "HEAD")
+        head_value = open(head, "r", encoding="utf-8").read().strip()
+        if head_value.startswith("ref:"):
+            ref = head_value.split(":", 1)[1].strip()
+            commit = open(os.path.join(".git", *ref.split("/")), "r", encoding="utf-8").read().strip()
+        else:
+            commit = head_value
+    except (OSError, UnicodeDecodeError):
         commit = "unknown"
     input_hashes = ",".join(
         sha256(path) for path in (
