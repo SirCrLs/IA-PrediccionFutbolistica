@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import pickle
 
 import pandas as pd
 import pytest
@@ -130,3 +131,45 @@ def test_short_hmac_key_rejected(isolated_security, monkeypatch):
     monkeypatch.setenv("PIPELINE_HMAC_KEY", "short")
     with pytest.raises(RuntimeError):
         security.secret("PIPELINE_HMAC_KEY")
+
+
+def test_path_traversal_rejected(isolated_security):
+    with pytest.raises(ValueError):
+        security.validate_path("../../etc/passwd")
+
+
+def test_oversized_file_rejected(isolated_security, monkeypatch):
+    artifact = isolated_security / "oversized.csv"
+    artifact.write_bytes(b"x" * 11)
+    monkeypatch.setattr(security, "MAX_FILE_SIZE", 10)
+    with pytest.raises(ValueError):
+        security.validate_path(
+            artifact,
+            allowed_dirs=(isolated_security,),
+            allowed_extensions={".csv"},
+        )
+
+
+class MaliciousPickle:
+    def __init__(self, marker):
+        self.marker = marker
+
+    def __reduce__(self):
+        return (os.system, (f'python -c "open(r\'{self.marker}\',\'w\').write(\'executed\')"',))
+
+
+def test_malicious_pickle_does_not_execute(isolated_security):
+    artifact = isolated_security / "malicious.pkl"
+    artifact.write_bytes(pickle.dumps(MaliciousPickle(str(isolated_security / "marker.txt"))))
+    marker = isolated_security / "marker.txt"
+    with pytest.raises(PermissionError):
+        security.load_pkl(artifact)
+    assert not marker.exists()
+
+
+def test_secret_not_written_to_log(isolated_security, monkeypatch):
+    secret_marker = "TOP-SECRET-MARKER-DO-NOT-LOG"
+    monkeypatch.setenv("PIPELINE_TOKEN", secret_marker)
+    security.log.info("Authentication attempt")
+    log_path = isolated_security / "audit.log"
+    assert not log_path.exists() or secret_marker not in log_path.read_text(encoding="utf-8")
