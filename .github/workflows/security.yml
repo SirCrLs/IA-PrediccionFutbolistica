@@ -1,0 +1,36 @@
+name: security
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install pinned dependencies
+        run: python -m pip install --require-hashes -r requirements.txt
+      - name: Bandit
+        run: bandit -r . -x ./tests,./.venv -ll
+      - name: pip-audit
+        run: pip-audit -r requirements.txt
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: pytest
+        run: pytest -q --junitxml=reports/pytest.xml
+        env:
+          PIPELINE_HMAC_KEY: ci-test-key-ci-test-key-ci-test32
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: reports/
