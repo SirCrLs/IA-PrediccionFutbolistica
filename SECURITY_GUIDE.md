@@ -17,6 +17,8 @@ Copia `.env.example` como `.env` y configura:
 - `PIPELINE_USER`: nombre del usuario registrado.
 - `PIPELINE_TOKEN`: token privado del usuario.
 
+`security.py` carga `.env` automáticamente mediante `python-dotenv`; las variables ya existentes en el proceso tienen prioridad.
+
 Nunca hagas commit de `.env`, `users.json`, `audit.log` ni `manifest.json`.
 
 ## Crear un usuario
@@ -35,6 +37,8 @@ $env:PIPELINE_TOKEN="a-private-token-with-at-least-12-characters"
 ```
 
 Las acciones `phase1` y `phase2` requieren el rol correspondiente. La acción `predict` valida equipos y liga antes de cargar los artefactos de preprocesamiento verificados.
+
+En un clon limpio, ejecuta primero `phase1` para crear `processed_data/` y `manifest.json`. `manifest.json` no se versiona y debe reconstruirse antes de verificar o cargar artefactos.
 
 ## Ejecutar las comprobaciones de seguridad
 

@@ -6,6 +6,9 @@ import os
 import re
 import time
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 MANIFEST = Path("manifest.json")
 USERS = Path("users.json")

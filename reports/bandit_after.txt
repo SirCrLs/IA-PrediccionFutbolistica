@@ -1,17 +1,17 @@
 bandit 1.9.4
-  python version = 3.11.0 (main, Oct 24 2022, 18:26:48) [MSC v.1933 64 bit (AMD64)]
+  python version = 3.11.0 (main)
 [main]	INFO	profile include tests: None
 [main]	INFO	profile exclude tests: None
 [main]	INFO	cli include tests: None
 [main]	INFO	cli exclude tests: None
 [main]	INFO	running on Python 3.11.0
-Run started:2026-11-23 23:27:05.656080+00:00
+Run started:2026-11-24 00:53:01.719239+00:00
 
 Test results:
 	No issues identified.
 
 Code scanned:
-	Total lines of code: 729
+	Total lines of code: 731
 	Total lines skipped (#nosec): 0
 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
 

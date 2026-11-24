@@ -1,0 +1,13 @@
+Malicious pickle before/after probe
+
+Baseline commit: 6cf08b5033378798553bc76e711d818db561b44c
+Probe artifact: malicious.pkl
+
+Original result:
+  original_load_executed True
+  marker created: C:\Users\User\AppData\Local\Temp\malicious-pickle-test\original-marker.txt
+
+Current result:
+  current_load_rejected True
+  marker not reused or rewritten
+  load_pkl() returned PermissionError because no matching registered manifest existed before deserialization

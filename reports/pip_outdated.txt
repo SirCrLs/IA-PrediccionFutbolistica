@@ -1,0 +1,4 @@
+pip list --outdated
+Package Version Latest Type
+------- ------- ------ -----
+h5py    3.14.0  3.16.0 wheel

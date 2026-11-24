@@ -8,7 +8,7 @@
 | Manifiesto | HMAC-SHA256 con `PIPELINE_HMAC_KEY` de al menos 32 bytes | Un hash simple no autentica quién creó el manifiesto; HMAC demuestra la integridad y autenticidad mediante clave secreta |
 | Contraseñas/tokens | scrypt con `n=2^15`, `r=8`, `p=1`, `maxmem=64 MiB` y salt aleatorio de 16 bytes | Aumenta el costo de fuerza bruta; la sal evita hashes idénticos para tokens iguales |
 | Comparación | `hmac.compare_digest()` | Reduce el riesgo de ataques de comparación por tiempo |
-| Claves | Variables de entorno y archivo `.env` ignorado por Git | Evita almacenar credenciales en el código o el historial |
+| Claves | Variables de entorno cargadas desde `.env` por `python-dotenv`; `.env` ignorado por Git | Evita almacenar credenciales en el código o el historial y permite configurar procesos locales |
 
 No se implementó criptografía personalizada. Los algoritmos usados son primitivas estándar de Python. Una clave HMAC débil o reutilizada puede invalidar la autenticidad del manifiesto; debe generarse aleatoriamente y administrarse fuera del repositorio.
 
@@ -38,3 +38,11 @@ Los paquetes se consideran confiables por procedencia en PyPI, versión fijada, 
 - No se hicieron upgrades de versiones sin una vulnerabilidad demostrada.
 
 Los hashes protegen integridad y reproducibilidad, pero no prueban por sí solos que una versión publicada sea segura; pip-audit complementa esa verificación.
+
+## Estado de carga de `.env`
+
+Se añadió `python-dotenv==1.2.4`. `security.py` llama `load_dotenv()` al importar el módulo. Una prueba real creó temporalmente un `.env`, eliminó la variable del proceso y confirmó `dotenv_loaded True` y `secret_ok True`. El `.env` temporal fue eliminado al finalizar.
+
+Revisa `reports/pip_outdated.txt` para los paquetes con una versión posterior disponible. El estado actual debe actualizarse solo después de revisar compatibilidad y ejecutar pruebas.
+
+Resultado real de `pip list --outdated`: solo `h5py` aparece desactualizado (`3.14.0` → `3.16.0`). No se actualizó porque TensorFlow `2.21.0` declara `h5py<3.15.0`; conservar `3.14.0` evita romper compatibilidad sin vulnerabilidad conocida.
