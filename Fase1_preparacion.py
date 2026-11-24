@@ -71,6 +71,9 @@ def ejecutar_fase1():
     df["HomeTeam"] = le_home.fit_transform(df["HomeTeam"])
     df["AwayTeam"] = le_away.fit_transform(df["AwayTeam"])
     df["League"] = le_league.fit_transform(df["League"])
+    joblib.dump(le_home, "processed_data/le_home.pkl")
+    joblib.dump(le_away, "processed_data/le_away.pkl")
+    joblib.dump(le_league, "processed_data/le_league.pkl")
 
     # Variables adicionales
     df["Total_Yellow"] = df["HY"] + df["AY"]
@@ -218,6 +221,9 @@ def ejecutar_fase1():
 
     protected_outputs = [
         "processed_data/scaler.pkl",
+        "processed_data/le_home.pkl",
+        "processed_data/le_away.pkl",
+        "processed_data/le_league.pkl",
         "processed_data/X_train.npy",
         "processed_data/X_val.npy",
         "processed_data/X_test.npy",
